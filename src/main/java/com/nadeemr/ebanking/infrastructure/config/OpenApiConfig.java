@@ -36,9 +36,8 @@ public class OpenApiConfig {
         prodServer.setDescription("Server URL in Production environment");
         
         Contact contact = new Contact();
-        contact.setEmail("api-support@nadeemr.com");
+        contact.setEmail("nadeem_rasheed@outlook.com");
         contact.setName("NadeemR API Support");
-        contact.setUrl("https://www.nadeemr.com");
         
         License license = new License()
                 .name("MIT License")
