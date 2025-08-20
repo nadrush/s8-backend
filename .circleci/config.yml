@@ -24,11 +24,6 @@ commands:
           paths:
             - ~/.m2/repository
 
-  setup_remote_docker:
-    description: "Setup remote Docker environment"
-    steps:
-      - setup_remote_docker
-
 # Define jobs
 jobs:
   # Build and test the application
@@ -162,13 +157,6 @@ workflows:
     jobs:
       # Always run these jobs
       - build_and_test:
-          filters:
-            tags:
-              only: /.*/
-
-      - build_docker:
-          requires:
-            - build_and_test
           filters:
             tags:
               only: /.*/
