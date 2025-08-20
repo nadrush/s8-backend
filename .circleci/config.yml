@@ -1,0 +1,187 @@
+version: 2.1
+
+# Define orbs for easier configuration
+orbs:
+  maven: circleci/maven@1.4.1
+  docker: circleci/docker@2.2.0
+  codecov: codecov/codecov@3.2.4
+
+# Define reusable commands
+commands:
+  restore_maven_cache:
+    description: "Restore Maven dependencies cache"
+    steps:
+      - restore_cache:
+          keys:
+            - maven-deps-v1-{{ checksum "pom.xml" }}
+            - maven-deps-v1-
+
+  save_maven_cache:
+    description: "Save Maven dependencies cache"
+    steps:
+      - save_cache:
+          key: maven-deps-v1-{{ checksum "pom.xml" }}
+          paths:
+            - ~/.m2/repository
+
+  setup_remote_docker:
+    description: "Setup remote Docker environment"
+    steps:
+      - setup_remote_docker:
+          version: 20.10.14
+          docker_layer_caching: true
+
+# Define jobs
+jobs:
+  # Build and test the application
+  build_and_test:
+    docker:
+      - image: cimg/openjdk:17.0
+    environment:
+      MAVEN_OPTS: -Xmx3200m
+    steps:
+      - checkout
+      - restore_maven_cache
+
+      # Download dependencies
+      - run:
+          name: Download dependencies
+          command: mvn dependency:go-offline -B
+
+      - save_maven_cache
+
+      # Run tests with coverage
+      - run:
+          name: Run tests
+          command: |
+            mvn clean test -B \
+              -Dspring.profiles.active=test \
+              -Dmaven.test.failure.ignore=false \
+              -DskipIntegrationTests=true
+
+      # Generate test reports
+      - run:
+          name: Generate test report
+          command: mvn surefire-report:report-only
+          when: always
+
+      # Store test results
+      - store_test_results:
+          path: target/surefire-reports
+
+      # Store test artifacts
+      - store_artifacts:
+          path: target/surefire-reports
+          destination: test-reports
+
+      # Store coverage reports
+      - store_artifacts:
+          path: target/site/jacoco
+          destination: coverage-reports
+
+      # Upload coverage to Codecov
+      - codecov/upload:
+          file: target/site/jacoco/jacoco.xml
+
+      # Store workspace for next jobs
+      - persist_to_workspace:
+          root: .
+          paths:
+            - target
+            - pom.xml
+
+  # Build Docker image
+  build_docker:
+    docker:
+      - image: cimg/openjdk:17.0
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Build application JAR
+          command: mvn clean package -DskipTests -B
+
+      - run:
+          name: Build Docker image
+          command: |
+            docker build -t nadeemr/ebanking-transactions-api:${CIRCLE_SHA1} .
+            docker tag nadeemr/ebanking-transactions-api:${CIRCLE_SHA1} nadeemr/ebanking-transactions-api:latest
+
+      - run:
+          name: Save Docker image
+          command: |
+            mkdir -p /tmp/docker-images
+            docker save nadeemr/ebanking-transactions-api:${CIRCLE_SHA1} > /tmp/docker-images/app.tar
+
+      - store_artifacts:
+          path: /tmp/docker-images
+          destination: docker-images
+
+  # Integration tests with real services
+  integration_tests:
+    machine:
+      image: ubuntu-2004:202201-02
+    environment:
+      MAVEN_OPTS: -Xmx3200m
+    steps:
+      - checkout
+      - restore_maven_cache
+
+      # Install Java 17
+      - run:
+          name: Install OpenJDK 17
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y openjdk-17-jdk
+            sudo update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+            java -version
+
+      # Run integration tests with Docker services
+      - run:
+          name: Run integration tests
+          command: |
+            mvn verify -B \
+              -Dspring.profiles.active=integration-test \
+              -DskipUnitTests=true \
+              -Dfailsafe.rerunFailingTestsCount=1
+
+      - store_test_results:
+          path: target/failsafe-reports
+
+      - store_artifacts:
+          path: target/failsafe-reports
+          destination: integration-test-reports
+
+# Define workflows
+workflows:
+  version: 2
+
+  # Main CI workflow
+  build_test:
+    jobs:
+      # Always run these jobs
+      - build_and_test:
+          filters:
+            tags:
+              only: /.*/
+
+      - build_docker:
+          requires:
+            - build_and_test
+          filters:
+            tags:
+              only: /.*/
+
+      # Run integration tests only on main branches
+      - integration_tests:
+          requires:
+            - build_and_test
+          filters:
+            branches:
+              only:
+                - main
+            tags:
+              only: /.*/
