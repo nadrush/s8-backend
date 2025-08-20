@@ -2,24 +2,13 @@
 
 A comprehensive Spring Boot microservice for managing paginated account transactions with Kafka integration, JWT authentication, and currency conversion capabilities.
 
+![c4_context](/diagrams/c4_context.png)
+
 ## 🏗️ Architecture Overview
 
 The application follows a layered architecture with clear separation of concerns:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    API Layer (REST)                        │
-├─────────────────────────────────────────────────────────────┤
-│                 Application Layer                          │
-│              (Services, Security)                          │
-├─────────────────────────────────────────────────────────────┤
-│                 Domain Layer                               │
-│         (Entities, Value Objects)                         │
-├─────────────────────────────────────────────────────────────┤
-│              Infrastructure Layer                          │
-│    (Database, Kafka, External APIs)                       │
-└─────────────────────────────────────────────────────────────┘
-```
+![system_arch](/diagrams/system_arch.png)
 
 ## 🚀 Features
 
@@ -59,7 +48,7 @@ The application follows a layered architecture with clear separation of concerns
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/nadrush/s8-backend.git
 cd ebanking-transactions-api
 ```
 
@@ -134,8 +123,7 @@ Authorization: Bearer <your-jwt-token>
 curl -X POST "http://localhost:8080/auth/token" \
   -H "Content-Type: application/json" \
   -d '{
-    "customerId": "P-0123456789",
-    "role": "CUSTOMER"
+    "customerId": "P-0123456789"
   }'
 ```
 
@@ -332,10 +320,10 @@ The deployment includes:
 
 ### Monitoring URLs
 
-- **Application**: `https://api.ebanking.nadeemr.com`
-- **Swagger UI**: `https://api.ebanking.nadeemr.com/swagger-ui.html`
-- **Health Check**: `https://api.ebanking.nadeemr.com/actuator/health`
-- **Metrics**: `https://api.ebanking.nadeemr.com/actuator/prometheus`
+- **Application**: [http://localhost:8080](http://localhost:8080)
+- **Swagger UI**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+- **Health Check**: [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health)
+- **Metrics**: [http://localhost:8080/actuator/prometheus](http://localhost:8080/actuator/prometheus)
 
 ## 📊 Monitoring & Observability
 
@@ -388,7 +376,6 @@ Import the provided dashboard from `docker/grafana-dashboard.json` for:
 ### Authentication & Authorization
 
 - JWT-based authentication
-- Role-based access control (RBAC)
 - Customer isolation (customers can only access their own data)
 - Secure headers and CORS configuration
 
@@ -433,9 +420,11 @@ Import the provided dashboard from `docker/grafana-dashboard.json` for:
 
 ### Transaction Entity
 
+![data_model](/diagrams/data_model.png)
+
 ```java
 {
-  "id": "UUID",
+  "id": "VarChar(max 50 chars to simulate like this unique identifier e.g. 89d3o179-abcd-465b-o9ee-e2d5f6ofEld46)",
   "amount": "BigDecimal",
   "currency": "String (3 chars)",
   "accountIban": "String (IBAN format)",
@@ -457,21 +446,9 @@ Import the provided dashboard from `docker/grafana-dashboard.json` for:
 
 Additional currencies can be added by extending the `ExchangeRateProvider`.
 
-## 🚀 Performance Considerations
+## CI/CD
+- CircleCI Pipeline (Linked to this repo) : [https://app.circleci.com/pipelines/github/nadrush/s8-backend](https://app.circleci.com/pipelines/github/nadrush/s8-backend)
+- CD Kubernetes : [https://github.com/nadrush/s8-backend/tree/main/k8s](https://github.com/nadrush/s8-backend/tree/main/k8s)
 
-### Optimizations
 
-1. **Database Indexing**: Optimized indexes for customer + date queries
-2. **Connection Pooling**: HikariCP with optimal pool size
-3. **Caching**: Exchange rates cached for 1 hour
-4. **Pagination**: Efficient offset-based pagination
-5. **Async Processing**: Kafka consumers run asynchronously
-
-### Scaling Recommendations
-
-- **Horizontal Scaling**: Use Kubernetes HPA for auto-scaling
-- **Database**: Read replicas for read-heavy workloads
-- **Kafka**: Partition by customer ID for parallel processing
-- **Caching**: Redis for distributed caching in multi-instance setups
-
-**By Nadeem Rasheed**
+**By Nadeem Abdur Rasheed**
