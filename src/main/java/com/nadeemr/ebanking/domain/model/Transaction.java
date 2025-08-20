@@ -19,7 +19,7 @@ import java.util.Objects;
 public class Transaction {
     
     @Id
-    @Column(length = 36)
+    @Column(length = 50)
     private String id;
     
     @NotNull
