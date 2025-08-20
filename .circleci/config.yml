@@ -4,6 +4,7 @@ version: 2.1
 orbs:
   maven: circleci/maven@1.4.1
   docker: circleci/docker@2.2.0
+  codecov: codecov/codecov@3.2.4
 
 # Define reusable commands
 commands:
