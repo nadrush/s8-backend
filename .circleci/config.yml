@@ -27,8 +27,7 @@ commands:
   setup_remote_docker:
     description: "Setup remote Docker environment"
     steps:
-      - setup_remote_docker:
-          docker_layer_caching: true
+      - setup_remote_docker
 
 # Define jobs
 jobs:
