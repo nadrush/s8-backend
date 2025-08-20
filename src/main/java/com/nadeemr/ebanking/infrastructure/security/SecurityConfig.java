@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .requestMatchers(new AntPathRequestMatcher("/health")).permitAll()
                 .requestMatchers(new AntPathRequestMatcher("/metrics")).permitAll()
                 .requestMatchers(new AntPathRequestMatcher("/h2-console/**")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/api/v1/auth/**")).permitAll()
                 
                 // API endpoints require authentication
                 .requestMatchers(new AntPathRequestMatcher("/api/v1/transactions/**", "GET")).hasRole("CUSTOMER")
