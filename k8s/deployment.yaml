@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ebanking-api
+  namespace: ebanking
+  labels:
+    app: ebanking-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ebanking-api
+  template:
+    metadata:
+      labels:
+        app: ebanking-api
+    spec:
+      containers:
+        - name: ebanking-api
+          image: nadeemr/ebanking-transactions-api:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ebanking-secrets
+                  key: db-username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ebanking-secrets
+                  key: db-password
+            - name: APP_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ebanking-secrets
+                  key: jwt-secret
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgres-service:5432/ebanking"
+            - name: APP_KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka-service:9092"
+            - name: APP_KAFKA_CONSUMER_GROUP
+              value: "ebanking-transactions-consumer"
+            - name: APP_KAFKA_TRANSACTION_TOPIC
+              value: "transaction-events"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: config-volume
+          configMap:
+            name: ebanking-config
+      securityContext:
+        fsGroup: 1000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ebanking-api-service
+  namespace: ebanking
+  labels:
+    app: ebanking-api
+spec:
+  selector:
+    app: ebanking-api
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ebanking-api-ingress
+  namespace: ebanking
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+    - hosts:
+        - api.ebanking.nadeemr.com
+      secretName: ebanking-api-tls
+  rules:
+    - host: api.ebanking.nadeemr.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ebanking-api-service
+                port:
+                  number: 80
